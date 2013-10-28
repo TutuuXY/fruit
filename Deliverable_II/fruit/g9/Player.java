@@ -21,6 +21,8 @@ public class Player extends fruit.sim.Player
     private int maxScoreSoFar;
     private int chooseLimit;
     private int bowlSeenFirstRound;
+    private int bowlSize;
+    private double expectation;
 
     public void init(int nplayers, int[] pref) {
         bowlSeenFirstRound = 0;
@@ -33,6 +35,7 @@ public class Player extends fruit.sim.Player
         maxScoreSoFar = 0;
         chooseLimit = (int)((double)nplayers / (double)Math.E);
         maxScoreSoFar = 0;
+        bowlSize = 0;
         System.out.println("chooseLimit = " + chooseLimit);
     }
 
@@ -69,6 +72,15 @@ public class Player extends fruit.sim.Player
         }
 
         if (0 == round) bowlSeenFirstRound++;
+        if (0 == bowlSize) {
+            for (int i=0; i<bowl.length; i++)
+                bowlSize += bowl[i];
+            expectation = 0.0;
+            for (int i=0; i<pref.length; i++)
+                expectation += pref[i] * bowlSize / 12.0; 
+            if (maxScoreSoFar == 0) maxScoreSoFar = (int)expectation;
+            System.out.println("expectation g9 = " + expectation);
+        }
         // we can update any information we want here
     }
 
@@ -83,13 +95,17 @@ public class Player extends fruit.sim.Player
                 return true;
             }
         }
-        System.out.println("Worse than maxScoreSoFar, pass it");
+        System.out.println(get_bowl_score(bowl) + "is worse than maxScoreSoFar " + maxScoreSoFar +  " , pass it");
         return false;
     }
 
     private boolean second_round_strategy() {
         if (bowlId == 0) maxScoreSoFar = 0;
-        int chooseLimitTwo = (int)(nplayers - bowlSeenFirstRound / Math.E);
+        int chooseLimitTwo = (int) ((double)(nplayers - bowlSeenFirstRound) / (double)Math.E);
+        System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\nbowlSeenFirstRound = " + bowlSeenFirstRound);
+        System.out.println("nplayers = " + nplayers + ", bowlSeenFirstRound = " + bowlSeenFirstRound + ", Math.E = " + Math.E );
+        System.out.println("chooseLimitTwo = " + chooseLimitTwo);
+        System.out.println("bowlId = " + bowlId);
         if (bowlId < chooseLimitTwo) {
             maxScoreSoFar = Math.max( maxScoreSoFar, get_bowl_score(bowl) );
             System.out.println("Not reached chooseLimit yet, updated maxScoreSoFar = " + maxScoreSoFar);
