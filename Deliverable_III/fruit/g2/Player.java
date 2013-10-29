@@ -28,11 +28,11 @@ public class Player extends fruit.sim.Player
                         boolean mustTake) {
         npassed++;
         stat.add(bowl);
-        if (choiceLeft() == 0) {
+	System.out.println("choice left: " + choiceLeft() + " can pick " + canPick);
+        if (choiceLeft() == 0 && this.round == 0) {
             // beginning of second round
             assert(picked);
             picked = false;
-            assert(round == 1);
             this.round = 1;
         }
         assert(round == this.round);
@@ -48,30 +48,42 @@ public class Player extends fruit.sim.Player
                 return true;
             }
         }
-        // 2 choice left - aim for avg
-        else if (choiceLeft() == 2) {
-            if (stat.score(npassed-1) < stat.average())
+        // otherwise look for avg + std
+        else {
+	    double coeff = getCoeff(choiceLeft());
+	    System.out.println("Score to take: " + (stat.average() + coeff*adjustedStdDev(stat.stdev())));
+            if (stat.score(npassed-1) < stat.average() + coeff*adjustedStdDev(stat.stdev()))
                 return false;
             else {
                 picked = true;
                 return true;
             }
         }
-        // otherwise look for avg + std
-        else
-            if (stat.score(npassed-1) < stat.average() + stat.stdev())
-                return false;
-            else {
-                picked = true;
-                return true;
-            }
         return false;
     }
     
+    public double getCoeff(int choiceLeft){
+
+	if (choiceLeft < 2)
+	   return 0.0;
+        else{
+	   System.out.println("coefficient chosen: " + (choiceLeft/4.0 - .5));
+           return choiceLeft/4.0-.5;
+	}
+    }
+
+    public double adjustedStdDev(double stdev){
+
+     int numfruits = stat.getNFruits();
+     double influence = Math.pow(.5, (double)npassed-1);
+     return influence*numfruits+(1-influence)*stdev;
+
+    }
+
     private int choiceLeft() {
         if (round == 0)
-            return nplayers - getIndex()- npassed;
+            return nplayers - getIndex()- npassed+1;
         else
-            return nplayers - npassed;
+            return nplayers - npassed+2;
     }
 }

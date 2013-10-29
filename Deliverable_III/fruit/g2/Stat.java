@@ -19,6 +19,10 @@ public class Stat {
         nround = 0;
     }
 
+    public int getNFruits(){
+	return nfruits;
+    }
+
     public void add(int[] bowl) {
         assert(nkindfruits == bowl.length);
         if (nfruits == 0)

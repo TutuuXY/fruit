@@ -20,12 +20,12 @@ public class Player extends fruit.sim.Player
     private int nplayers;
     private int maxScoreSoFar;
     private int chooseLimit;
-    private int bowlSeenFirstRound;
+    private int chooseLimitTwo;
     private int bowlSize;
     private double expectation;
+    private int seat;
 
     public void init(int nplayers, int[] pref) {
-        bowlSeenFirstRound = 0;
         this.pref = deepCopyArray( pref );
         this.nplayers = nplayers;
         first_history = new int[ nplayers ][ pref.length ];
@@ -33,10 +33,14 @@ public class Player extends fruit.sim.Player
         first_score = new int[ nplayers ];
         second_score = new int[ nplayers ];
         maxScoreSoFar = 0;
-        chooseLimit = (int)((double)nplayers / (double)Math.E);
+        seat = getIndex();
+        chooseLimit = (int)((double)(nplayers - seat) / (double)Math.E);
+        chooseLimitTwo = (int)((double)(seat+1) / (double)Math.E);
         maxScoreSoFar = 0;
         bowlSize = 0;
+        System.out.println("#############################");
         System.out.println("chooseLimit = " + chooseLimit);
+        System.out.println("chooseLimitTwo = " + chooseLimitTwo);
     }
 
     private int[] deepCopyArray(int[] a) {
@@ -71,7 +75,6 @@ public class Player extends fruit.sim.Player
             second_history[bowlId] = deepCopyArray( bowl );
         }
 
-        if (0 == round) bowlSeenFirstRound++;
         if (0 == bowlSize) {
             for (int i=0; i<bowl.length; i++)
                 bowlSize += bowl[i];
@@ -101,11 +104,7 @@ public class Player extends fruit.sim.Player
 
     private boolean second_round_strategy() {
         if (bowlId == 0) maxScoreSoFar = 0;
-        int chooseLimitTwo = (int) ((double)(nplayers - bowlSeenFirstRound) / (double)Math.E);
-        System.out.println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\nbowlSeenFirstRound = " + bowlSeenFirstRound);
-        System.out.println("nplayers = " + nplayers + ", bowlSeenFirstRound = " + bowlSeenFirstRound + ", Math.E = " + Math.E );
-        System.out.println("chooseLimitTwo = " + chooseLimitTwo);
-        System.out.println("bowlId = " + bowlId);
+
         if (bowlId < chooseLimitTwo) {
             maxScoreSoFar = Math.max( maxScoreSoFar, get_bowl_score(bowl) );
             System.out.println("Not reached chooseLimit yet, updated maxScoreSoFar = " + maxScoreSoFar);
@@ -141,7 +140,6 @@ public class Player extends fruit.sim.Player
     public boolean pass(int[] bowl, int bowlId, int round,
                         boolean canPick,
                         boolean musTake) {
-        
         
         update_info(bowl, bowlId, round, canPick, musTake);
 

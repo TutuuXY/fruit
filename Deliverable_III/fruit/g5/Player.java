@@ -1,73 +1,94 @@
-	package fruit.g5;
+package fruit.g5;
+import java.util.*;
+import java.io.*;    
      
-    import java.util.Random;
-     
-    public class Player extends fruit.sim.Player
-    {
+public class Player extends fruit.sim.Player
+{
 
-		double maxScore1 = 0.0, maxScore2 = 0.0;
-		int nplayers, index, cutoffPoint1, cutoffPoint2, startPoint2;
-		int choice = 0;
-		int[] pref;
+	int nplayers, index, choice = -1;
+	int[] pref;
+	int[][] choicelist;
+	
+	boolean createLog = false; // Toggle while debugging
+	PrintWriter outfile;
 
-		public void init(int nplayers, int[] pref)
-		{
-            this.nplayers = nplayers;
-            this.pref = pref;
-			this.index = getIndex();
-			cutoffPoint1 = (int) Math.ceil((nplayers + 1 - index) / Math.E);
-			
-			
-			if( (nplayers + 1 - index) < (index / (Math.E - 1)) )
-			{
-				startPoint2 = 0;
-				cutoffPoint2 = (int) Math.ceil((nplayers + 1) / Math.E);
-			}
-			else
-			{
-				startPoint2 = (int) Math.ceil((nplayers + 1 - index) - (index / (Math.E - 1)));
-				cutoffPoint2 = (int) Math.ceil(index / (Math.E - 1));
-			}
+	
+	public void init(int nplayers, int[] pref)
+	{
+		this.nplayers = nplayers;
+		this.pref = pref;
+		this.index = getIndex();
+		choicelist = new int[nplayers + 1][pref.length];
+		
+		if(createLog) try {
+			FileWriter fstream = new FileWriter("fruit/g5/log.txt", false);
+			outfile = new PrintWriter(fstream);
+			outfile.println("Players : " + Integer.toString(nplayers));
+			outfile.println("Index   : " + Integer.toString(index));
+			outfile.println("");
+			outfile.flush();
+		} catch (Exception e){ }
+	}
 
-			
-        }
-	 
-        public boolean pass(int[] bowl, int bowlId, int round, boolean canPick, boolean musTake)
+	
+	public boolean pass(int[] bowl, int bowlId, int round, boolean canPick, boolean musTake)
+	{
+		int choicesleft, cutoff = 0, numfruits = 0;
+		boolean pickflag = false;
+		
+		choice++;
+		choicelist[choice] = bowl.clone();
+
+		for (int i = 0; i < bowl.length; i++)
+			numfruits = numfruits + bowl[i];
+		
+		if(round == 0)
 		{
-			choice++;
-     
-            if (choice <= cutoffPoint1)
-			{
-				if(bowlScore(bowl) > maxScore1)
-					maxScore1 = bowlScore(bowl);
-			}
-			
-            if (choice >= startPoint2 && choice <= (startPoint2 + cutoffPoint2))
-			{
-				if(bowlScore(bowl) > maxScore2)
-					maxScore2 = bowlScore(bowl);
-			}
-     
-            if (round == 0 && choice >= cutoffPoint1 && bowlScore(bowl) >= maxScore1)
-                return true;
-				
-			else if (round == 1 && choice >= (startPoint2 + cutoffPoint2) && bowlScore(bowl) >= maxScore2)
-				return true;
-     
-			//else if(musTake)
-			//	return true;
-				
-            return false;
-        }
-     
-        public int bowlScore(int[] bowl)
+			choicesleft = nplayers - index - choice; 
+			if((choice + 1) > Math.round((nplayers - index) / Math.E))
+				pickflag = true;
+		}
+		
+		else
 		{
-            int score = 0;
-            for (int i = 0; i < bowl.length; i++)
-			{
-                score += pref[i] * bowl[i];
-            }
-            return score;
-        }
-    }
+			choicesleft = nplayers + 1 - choice;
+			if((choice + 1) > Math.round((nplayers + 1) / Math.E))
+				pickflag = true;
+		}
+		
+		for(int i = choice - 1, j = 0; i > -1 && j < Math.round(choicesleft / (Math.E - 1));  i--, j++)
+		{
+			if(bowlScore(choicelist[i]) > cutoff)
+				cutoff = bowlScore(choicelist[i]);
+		}
+		
+		if(createLog)
+		{
+			outfile.println("Round     : " + Integer.toString(round));
+			outfile.println("Choice    : " + Integer.toString(choice));
+			outfile.println("Remaining : " + Integer.toString(choicesleft));
+			outfile.println("Cutoff    : " + Integer.toString(cutoff));
+			outfile.println("Score     : " + Integer.toString(bowlScore(bowl)));
+			outfile.println("Pickflag  : " + Boolean.toString(pickflag));
+			outfile.println("");
+			outfile.flush();
+		}
+		
+		if((pickflag && bowlScore(bowl) > cutoff) || (bowlScore(bowl) > (int) (9.0 * numfruits)))
+			return true;
+
+		return false;
+	}
+
+
+	public int bowlScore(int[] bowl)
+	{
+		int score = 0;
+		for (int i = 0; i < bowl.length; i++)
+		{
+			score += pref[i] * bowl[i];
+		}
+		return score;
+	}
+}
 
