@@ -18,15 +18,21 @@ public class Player extends fruit.sim.Player
     private int[] first_score;
     private int[] second_score;
     private int[] pref;
+    private int nfruits;
 
     private int accumulated_bowl_number;
-    private int[][] accumulated_bowl_history;
+    //private int[][] accumulated_bowl_history;
     private int[] accumulated_bowl_score;
+
+    // keep adding bowls to the estimation
+    private double[] smoothed_distribution_count;
+    // normalized from smoothed_distribution_count by nfruits
     private double[] estimated_initial_distribution;
+    // keep summing up the bowls seen
     private double[] substracted_distribution;
+    // recalculate from the the above two
     private double[] estimated_remainging_distribution;
 
-    private int nplayers;
     private int maxScoreSoFar;
     private int chooseLimit;
     private int chooseLimitTwo;
@@ -36,10 +42,14 @@ public class Player extends fruit.sim.Player
     private int totalBowls;
     private int bowlsRest;
 
+    private int lastRound;
+
     // parameter for statistic updating
-    private double updateWeight = 0.5;
+    private double updateWeight = 0;
     // parameter for strategy choosing
     private int bowlSizeThreshold = 0;
+    // parameter for the speed to lower the expectation
+    private double decreaseSpeed = 5.0;
 
     public void init(int nplayers, int[] pref) {
         this.nplayers = nplayers;
@@ -55,17 +65,20 @@ public class Player extends fruit.sim.Player
         chooseLimitTwo = (int)((double)(seat+1) / (double)Math.E);
         maxScoreSoFar = 0;
         bowlSize = 0;
+        nfruits = 0;
         bowlsRest = -1;
         System.out.println("#############################");
         System.out.println("chooseLimit = " + chooseLimit);
         System.out.println("chooseLimitTwo = " + chooseLimitTwo);
 
+        smoothed_distribution_count = new double[ pref.length ];
         estimated_initial_distribution = new double[ pref.length ];
         substracted_distribution = new double[ pref.length ];
         estimated_remainging_distribution = new double[ pref.length ];
         accumulated_bowl_number = 0;
-        accumulated_bowl_score = new double[ 2*nplayers ];
-        accumulated_bowl_history = new int[ 2*nplayers ][ pref.length ];
+        accumulated_bowl_score = new int[ 2 * nplayers ];
+        lastRound = -1;
+        //accumulated_bowl_history = new int[ 2*nplayers ][ pref.length ];
 
     }
 
@@ -114,39 +127,69 @@ public class Player extends fruit.sim.Player
         }
         // we can update any information we want here
 
-
-        accumulated_bowl_score[accumulated_bowl_number] = get_bowl_score( bowl );
-        accumulated_bowl_history[accumulated_bowl_number] = deepCopyArray( bowl );
-        accumulated_bowl_number++;
-
+        nfruits = nplayers * bowlSize;
         if (0 == round) {
             totalBowls = nplayers - getIndex();
         } else {
             totalBowls = getIndex() + 1;
         }
-        if (!mustTake && (-1 == bowlsRest)) {
+        if (lastRound != round ) {
             bowlsRest = totalBowls;
+            lastRound = round;
         }
         bowlsRest--;
         // update the observed distribution
         // both the estimated initial distribution
         // and the substracted distribution
+        
+        accumulated_bowl_score[accumulated_bowl_number] = get_bowl_score( bowl );
+        //accumulated_bowl_history[accumulated_bowl_number] = deepCopyArray( bowl );
+        accumulated_bowl_number++;
 
-        // if for certain kind of fruit, 
-        // there are more of it than expected (in estimated initial distribution),
-        // then we adjust the estimated initial distribution based on the difference
+        update_estimated_initial_distribution( accumulated_bowl_number, bowl );
+        update_substracted_distribution( totalBowls - bowlsRest - 1, bowl );
+        update_estimated_remainging_distribution();
+    }
 
-        // add this bowl to the substracted distribution
-        if( totalBowls - bowlsRest == 1 ) {
+    private void update_estimated_initial_distribution( int j, int[] bowl ) {
+        // initialization
+        if ( 0 == j ) {
+            Arrays.fill(smoothed_distribution_count, nfruits/pref.length);
+        }
+        // Calculate the smoothed count
+        if ( 0 == j ) {
+            for ( int i = 0; i < pref.length; i++) {
+                smoothed_distribution_count[i] *= updateWeight;
+            }
+        }
+        double sum = 0;
+        for ( int i = 0; i < pref.length; i++) {
+            smoothed_distribution_count[i] += (double)(bowl[i]);
+            sum += smoothed_distribution_count[i];
+        }
+        for ( int i = 0; i < pref.length; i++) {
+            estimated_initial_distribution[i] = 
+                smoothed_distribution_count[i] * ((double)(nfruits) / sum);
+        }
+    }
+
+    // add this bowl to the substracted distribution
+    private void update_substracted_distribution( int j, int[] bowl ) {
+        if( 0 == j ) {
             Arrays.fill(substracted_distribution, 0); 
         }
         for (int i = 0; i < pref.length ; i++) {
             substracted_distribution[i] += bowl[i];
         }
-
-        // then calculate the new remaining distribution 
     }
 
+    private void update_estimated_remainging_distribution() {
+        for (int i = 0; i < pref.length ; i++) {
+            estimated_remainging_distribution[i] = 
+                estimated_initial_distribution[i] - substracted_distribution[i];
+        }
+    }
+ 
     private boolean first_round_strategy() {
         if (bowlId < chooseLimit) {
             maxScoreSoFar = Math.max( maxScoreSoFar, get_bowl_score(bowl) );
@@ -197,7 +240,7 @@ public class Player extends fruit.sim.Player
         System.out.println(musTake);
     }
 
-    private boolean small_size_strategy() {
+    private boolean small_size_strategy(int[] bowl) {
         // haven't implemented it yet
         return true;        
     }
@@ -205,10 +248,12 @@ public class Player extends fruit.sim.Player
     private double bowl_expectation() {
         // calculate the expectation for the remaining bowls
         double ret = 0;
+        double sum = 0;
         for (int i = 0; i < pref.length; i++) {
             ret += (double)(pref[i]) * estimated_remainging_distribution[i];
+            sum += estimated_remainging_distribution[i];
         } 
-        return ret;
+        return ret * ( bowlSize / sum );
     }
 
     private double bowl_SD() {
@@ -218,30 +263,40 @@ public class Player extends fruit.sim.Player
         double avg = 0;
         double x = 0;
         for (int i = 0; i < accumulated_bowl_number ; i++) {
-            avg += accumulated_bowl_score[i];
+            avg += (double)(accumulated_bowl_score[i]);
         }
-        avg /= accumulated_bowl_number;
+        avg /= (double)(accumulated_bowl_number);
         for (int i = 0; i < accumulated_bowl_number ; i++) {
-            x = accumulated_bowl_number - avg;
+            x = (double)(accumulated_bowl_number) - avg;
             ret += x * x;
         }
-        ret /= (accumulated_bowl_score.length - 1);
-        ret = sqrt(ret);
+        ret /= (double)(accumulated_bowl_score.length - 1);
+        ret = Math.sqrt(ret);
         return ret;
     }
 
     private double good_bowl_score(double decreaseFactor) {
-        return bowl_expectation() + bowl_SD() * decreaseFactor;
+        System.out.println("Ex = " + bowl_expectation());
+        System.out.println("SD = " + bowl_SD());
+        return bowl_expectation() + bowl_SD() * decreaseFactor / decreaseSpeed;
     }
 
-    private boolean large_size_strategy() {
+    private boolean large_size_strategy(int[] bowl) {
         
         // the distributions are updated in the beginning in the pass() function
         // we don't have to update / initialize again
 
         // Use the updated distribution for the decision-making
+        System.out.println( "b-score = " + get_bowl_score(bowl));
+        System.out.println( "bowlsRest = " + bowlsRest);
+        System.out.println( "totalBowls = " + totalBowls);
         double decreaseFactor = (double)(bowlsRest) / (double)(totalBowls);
-        return get_bowl_score() >= good_bowl_score(decreaseFactor);
+        if ( (double)(get_bowl_score(bowl)) >= good_bowl_score(decreaseFactor) ) {
+            System.out.println( "g-score = " + good_bowl_score(decreaseFactor));
+            return true;
+        }
+        System.out.println( "g-score = " + good_bowl_score(decreaseFactor));
+        return false;
     }
 
     public boolean pass(int[] bowl, int bowlId, int round,
@@ -264,9 +319,9 @@ public class Player extends fruit.sim.Player
         */
         // For Deliverable III, we use different strategy for different size bowls
         if (bowlSize < bowlSizeThreshold) {
-            return small_size_strategy();
+            return small_size_strategy(bowl);
         } else {
-            return large_size_strategy();
+            return large_size_strategy(bowl);
         }
     }
 
