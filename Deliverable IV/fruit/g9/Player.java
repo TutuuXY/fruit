@@ -44,6 +44,17 @@ public class Player extends fruit.sim.Player
 
     private int lastRound;
 
+
+    // belief for initial distribution
+    // The uniform distribution belief
+    private double[] belief = {1.0/12.0, 1.0/12.0, 1.0/12.0, 1.0/12.0, 1.0/12.0, 1.0/12.0,
+                                 1.0/12.0, 1.0/12.0, 1.0/12.0, 1.0/12.0, 1.0/12.0, 1.0/12.0};
+
+    /*
+    // The normal distribution belief
+    private double[] belief = {0.03. 0.05, 0.06, 0.08, 0.1, 0.18
+                                ,0.18, 0.1, 0.08, 0.06, 0.05, 0.03 };
+    */                      
     // parameter for statistic updating
     private double updateWeight = 0;
     // parameter for strategy choosing
@@ -151,10 +162,16 @@ public class Player extends fruit.sim.Player
         update_estimated_remainging_distribution();
     }
 
+    private void assign_belief_of_initial_distribution(double[] dist) {
+        for ( int i = 0; i < dist.length ; i++ ) {
+            dist[i] = belief[i]*nfruits;
+        }
+    }
+
     private void update_estimated_initial_distribution( int j, int[] bowl ) {
         // initialization
-        if ( 0 == j ) {
-            Arrays.fill(smoothed_distribution_count, nfruits/pref.length);
+        if( 0 == j ) {
+            assign_belief_of_initial_distribution(smoothed_distribution_count);
         }
         // Calculate the smoothed count
         if ( 0 == j ) {
