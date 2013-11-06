@@ -57,10 +57,12 @@ public class Player extends fruit.sim.Player
     */                      
     // parameter for statistic updating
     private double updateWeight = 0;
+    // parameter for smoothed statistic updating, "rare_count" for fruit not observed in this bowl
+    private double smoothing_factor = 0.5;
     // parameter for strategy choosing
     private int bowlSizeThreshold = 0;
     // parameter for the speed to lower the expectation
-    private double decreaseSpeed = 5.0;
+    private double decreaseSpeed = 4.0;
 
     public void init(int nplayers, int[] pref) {
         this.nplayers = nplayers;
@@ -157,8 +159,11 @@ public class Player extends fruit.sim.Player
         //accumulated_bowl_history[accumulated_bowl_number] = deepCopyArray( bowl );
         accumulated_bowl_number++;
 
-        update_estimated_initial_distribution( accumulated_bowl_number, bowl );
-        update_substracted_distribution( totalBowls - bowlsRest - 1, bowl );
+        double[] smoothed_bowl = new double[bowl.length];
+        smoothed_bowl = smooth_bowl(bowl);
+
+        update_estimated_initial_distribution( accumulated_bowl_number, smoothed_bowl );
+        update_substracted_distribution( totalBowls - bowlsRest - 1, smoothed_bowl );
         update_estimated_remainging_distribution();
     }
 
@@ -168,7 +173,31 @@ public class Player extends fruit.sim.Player
         }
     }
 
-    private void update_estimated_initial_distribution( int j, int[] bowl ) {
+    private double[] smooth_bowl(int[] bowl) {
+        double[] ret = new double[bowl.length];
+        int count_of_zero = 0;
+        for (int i = 0 ; i < bowl.length; i++ ) {
+            if ( 0 == bowl[i]) {
+                count_of_zero++;
+            }
+            ret[i] = (double)(bowl[i]);
+        }
+        double smoothing_count = smoothing_factor * 
+                                (double)(count_of_zero) /
+                                (double)(bowl.length - count_of_zero);
+
+        for (int i = 0 ; i < bowl.length; i++ ) {
+            if ( 0 == bowl[i]) {
+                ret[i] += smoothing_factor;
+            }
+            else {
+                ret[i] -= smoothing_count;
+            }
+        }
+        return ret;
+    }
+
+    private void update_estimated_initial_distribution( int j, double[] bowl ) {
         // initialization
         if( 0 == j ) {
             assign_belief_of_initial_distribution(smoothed_distribution_count);
@@ -191,7 +220,7 @@ public class Player extends fruit.sim.Player
     }
 
     // add this bowl to the substracted distribution
-    private void update_substracted_distribution( int j, int[] bowl ) {
+    private void update_substracted_distribution( int j, double[] bowl ) {
         if( 0 == j ) {
             Arrays.fill(substracted_distribution, 0); 
         }
